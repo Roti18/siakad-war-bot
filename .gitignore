@@ -1,0 +1,15 @@
+# Client Compiled Binaries
+/bot
+bot.exe
+/client
+client.exe
+
+# Local Chrome Profile cache (used for session persistence in Persistent profile mode)
+chrome_profile/
+
+# Local credentials
+.env
+credentials.dat
+
+# Screenshots directory
+warResult/
