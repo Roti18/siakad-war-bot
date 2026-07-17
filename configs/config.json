@@ -1,0 +1,39 @@
+{
+  "browser": {
+    "headless": false,
+    "width": 1920,
+    "height": 1080,
+    "block_images": true,
+    "block_css": true,
+    "block_fonts": true,
+    "block_media": true,
+    "disable_gpu": true,
+    "disable_extension": true,
+    "disable_notification": true,
+    "enable_incognito": true
+  },
+  "schedule": {
+    "date": "",
+    "time": "09:00:00",
+    "standby_before_minutes": 10,
+    "refresh_interval_seconds": 300,
+    "retry_delay_seconds": 0.5,
+    "max_retry": 100
+  },
+  "network": {
+    "proxy": "",
+    "http_timeout_seconds": 30,
+    "connection_timeout_seconds": 10,
+    "retry_count": 3,
+    "retry_delay_seconds": 2.0
+  },
+  "screenshot": {
+    "enable": true,
+    "save_directory": "warResult",
+    "screenshot_success": true,
+    "screenshot_failed": true,
+    "screenshot_before_submit": false,
+    "screenshot_after_submit": true
+  },
+  "courses": []
+}
