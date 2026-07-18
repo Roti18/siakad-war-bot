@@ -41,7 +41,14 @@ func (c *Config) RunMainMenu() {
 			ui.LogSuccess("Mata kuliah target terkonfigurasi. Memulai engine KRS War...")
 			ui.LogInfo("Mencari kelas untuk " + strconv.Itoa(len(c.Courses)) + " mata kuliah...")
 			
-			// 1. Inisialisasi Browser Driver
+			// 1. Inisialisasi Screenshot Service
+			ui.LogInfo("Menginisialisasi Screenshot Service...")
+			ssService := browser.NewScreenshotService(c.Screenshot.SaveDirectory)
+			ctx := context.Background()
+			ssService.Start(ctx)
+			defer ssService.Stop()
+
+			// 2. Inisialisasi Browser Driver
 			ui.LogInfo("Membuka browser Chromium (Headless: " + strconv.FormatBool(c.Browser.Headless) + ")...")
 			driver := browser.NewBrowserDriver()
 			policy := domain.BlockPolicy{
@@ -56,36 +63,23 @@ func (c *Config) RunMainMenu() {
 				profileMode = "Persistent"
 			}
 			
-			ctx := context.Background()
 			err := driver.Launch(ctx, c.Browser.Headless, profileMode, policy)
 			if err != nil {
 				ui.LogError("Gagal meluncurkan browser: " + err.Error())
 				ui.Footer()
 				break
 			}
-			
+			defer driver.Close()
+
 			baseURL := os.Getenv("BASE_URL")
 			if baseURL == "" {
 				baseURL = "https://siakad.trunojoyo.ac.id/"
 			}
-			
-			ui.LogInfo("Navigasi ke SIAKAD Portal: " + baseURL)
-			err = driver.Navigate(ctx, baseURL)
-			if err != nil {
-				ui.LogError("Gagal memuat halaman: " + err.Error())
-				_ = driver.Close()
-				ui.Footer()
-				break
-			}
-			
-			ui.LogSuccess("Bot berhasil login standby! Menunggu jadwal KRS aktif...")
-			ui.LogWarning("PERINGATAN: Jangan menutup jendela Chrome secara manual.")
-			fmt.Println("")
-			ui.Prompt("Tekan Enter untuk menghentikan bot dan menutup browser", "")
-			
-			ui.LogInfo("Menutup browser...")
-			_ = driver.Close()
-			ui.LogSuccess("Bot dihentikan dengan aman.")
+			nim := os.Getenv("NIM")
+			password := os.Getenv("PASSWORD")
+
+			// 3. Jalankan Engine KRS War Utama
+			browser.StartWarEngine(ctx, driver, c.Courses, c.Schedule.Time, c.Schedule.RefreshIntervalSec, c.Schedule.RetryDelaySec, c.Schedule.MaxRetry, nim, password, baseURL, ssService)
 			ui.Footer()
 		case "2":
 			c.ConfigureBrowser()

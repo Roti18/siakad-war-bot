@@ -1,0 +1,315 @@
+package browser
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	"github.com/Roti18/siakad-war-bot/internal/domain"
+	"github.com/Roti18/siakad-war-bot/internal/ui"
+	"github.com/go-rod/rod"
+)
+
+// getActivePage returns the frame page context if it exists, otherwise the main page
+func getActivePage(page *rod.Page, name string) *rod.Page {
+	el, err := page.Element(fmt.Sprintf("frame[name='%s'], iframe[name='%s']", name, name))
+	if err == nil && el != nil {
+		framePage, err := el.Frame()
+		if err == nil && framePage != nil {
+			return framePage
+		}
+	}
+	return page
+}
+
+// loginLogic automates the logging in process and waits for the dashboard to appear
+func loginLogic(ctx context.Context, page *rod.Page, baseURL, nim, password string, timeoutSec int) bool {
+	url := baseURL + "index.php"
+	ui.LogInfo("Menghubungi website: " + url + " ...")
+	
+	if err := page.Context(ctx).Navigate(url); err != nil {
+		ui.LogError("Gagal memuat halaman login: " + err.Error())
+		return false
+	}
+
+	ui.LogInfo("Halaman login berhasil dimuat. Menyiapkan autentikasi...")
+
+	// 1. Masukkan NIM
+	usernameEl, err := page.Context(ctx).Element("#username")
+	if err != nil {
+		ui.LogError("Input field 'username' tidak ditemukan!")
+		return false
+	}
+	usernameEl.MustInput(nim)
+
+	// 2. Masukkan Password
+	passwordEl, err := page.Context(ctx).Element("#password")
+	if err != nil {
+		ui.LogError("Input field 'password' tidak ditemukan!")
+		return false
+	}
+	passwordEl.MustInput(password)
+
+	// 3. Klik Tombol Login
+	loginBtn, err := page.Context(ctx).ElementX("//input[@type='button' and @value='Login']")
+	if err != nil {
+		// Fallback ke input submit standar jika tipe button berbeda
+		loginBtn, err = page.Context(ctx).Element("input[type='submit']")
+	}
+	if err == nil && loginBtn != nil {
+		loginBtn.MustClick()
+	} else {
+		ui.LogError("Tombol login tidak ditemukan di halaman!")
+		return false
+	}
+
+	ui.LogInfo("Mengirim data masuk... Menunggu halaman dashboard...")
+
+	// 4. Deteksi Dashboard Berhasil
+	start := time.Now()
+	for time.Since(start) < time.Duration(timeoutSec)*time.Second {
+		info, _ := page.Info()
+		if info != nil && strings.Contains(strings.ToLower(info.URL), "utama.php") {
+			ui.LogSuccess("Login Berhasil! (Dashboard utama.php)")
+			return true
+		}
+
+		// Cek keberadaan frame menu
+		el, err := page.Element("frame[name='menu'], iframe[name='menu']")
+		if err == nil && el != nil {
+			ui.LogSuccess("Login Berhasil! (Dashboard Frame)")
+			return true
+		}
+
+		// Cek link KRS langsung (Portal Baru)
+		links, err := page.ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
+		if err == nil && len(links) > 0 {
+			ui.LogSuccess("Login Berhasil! (Portal Tanpa Frame)")
+			return true
+		}
+
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	ui.LogError("Gagal mendeteksi halaman dashboard (Timeout). Periksa kembali NIM/Password Anda.")
+	return false
+}
+
+// waitUntilWar halts execution with keep-alive page reloads until target time is reached
+func waitUntilWar(ctx context.Context, page *rod.Page, targetTimeStr string, refreshInterval int, baseURL, nim, password string, timeoutSec int) {
+	if targetTimeStr == "" {
+		return
+	}
+	
+	ui.LogInfo("STANDBY: Menunggu jadwal KRS aktif pada jam " + targetTimeStr + "...")
+	lastRefresh := time.Now()
+
+	for {
+		nowStr := time.Now().Format("15:04:05")
+		if nowStr >= targetTimeStr {
+			ui.LogSuccess("WAKTU WAR TIBA (" + nowStr + ")! MEMULAI EKSEKUSI...")
+			break
+		}
+
+		// Keep-Alive Refresh agar sesi login tidak expired
+		if time.Since(lastRefresh) > time.Duration(refreshInterval)*time.Second {
+			ui.LogInfo("Menyegarkan sesi browser (Keep-Alive)...")
+			_ = page.Context(ctx).Reload()
+			lastRefresh = time.Now()
+			time.Sleep(2 * time.Second)
+
+			// Deteksi jika ter-logout otomatis saat refresh
+			usernameField, err := page.Element("#username")
+			if err == nil && usernameField != nil {
+				ui.LogWarning("Sesi Anda terputus! Mencoba login ulang otomatis...")
+				loginLogic(ctx, page, baseURL, nim, password, timeoutSec)
+			}
+		}
+
+		nextRefresh := int(time.Duration(refreshInterval)*time.Second-time.Since(lastRefresh)) / int(time.Second)
+		fmt.Printf("\r[🕒] Jam: %s | Target: %s | Refresh Sesi: %ds ", nowStr, targetTimeStr, nextRefresh)
+		time.Sleep(500 * time.Millisecond)
+	}
+	fmt.Println()
+}
+
+// StartWarEngine runs the main automated KRS ticking loop
+func StartWarEngine(ctx context.Context, 
+	driver domain.BrowserDriver, 
+	courses []domain.TargetCourse, 
+	schTime string,
+	schRefreshIntervalSec int,
+	schRetryDelaySec float64,
+	schMaxRetry int,
+	nim, password, baseURL string,
+	ssService domain.ScreenshotService) {
+	
+	rodDriver, ok := driver.(*RodDriver)
+	if !ok || rodDriver.page == nil {
+		ui.LogError("Driver browser tidak valid atau belum diinisialisasi!")
+		return
+	}
+
+	page := rodDriver.page
+	sabarWait := 10 // default wait timeout
+
+	// 1. Jalankan Logika Login
+	if !loginLogic(ctx, page, baseURL, nim, password, sabarWait) {
+		return
+	}
+
+	// 2. Jalankan Timer Tunggu War KRS Aktif
+	waitUntilWar(ctx, page, schTime, schRefreshIntervalSec, baseURL, nim, password, sabarWait)
+
+	// 3. Navigasi Menuju Halaman KRS
+	for {
+		// Cek logout otomatis
+		usernameField, err := page.Element("#username")
+		if err == nil && usernameField != nil {
+			ui.LogWarning("Sesi putus saat navigasi! Mengulang login...")
+			loginLogic(ctx, page, baseURL, nim, password, sabarWait)
+		}
+
+		menuPage := getActivePage(page, "menu")
+		krsLink, err := menuPage.Context(ctx).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
+		if err == nil && krsLink != nil {
+			ui.LogInfo("Mengakses menu Kartu Rencana Studi...")
+			krsLink.MustClick()
+			break
+		}
+
+		ui.LogError("Menu KRS tidak ditemukan! Merefresh Dashboard...")
+		_ = page.Context(ctx).Navigate(baseURL + "index.php")
+		time.Sleep(2 * time.Second)
+	}
+
+	// 4. Klik Tombol "Tambah" KRS
+	tambahAttempt := 1
+	xpathTambah := "//*[(self::a or self::input) and (contains(@value, 'Tambah') or contains(., 'Tambah'))]"
+	for {
+		mainPage := getActivePage(page, "main")
+		tambahBtn, err := mainPage.Context(ctx).ElementX(xpathTambah)
+		if err == nil && tambahBtn != nil {
+			ui.LogSuccess("Tombol 'Tambah' ditemukan! Membuka Halaman Pemilihan Kelas...")
+			tambahBtn.MustClick()
+			break
+		}
+
+		ui.LogInfo(fmt.Sprintf("[%s] Tombol 'Tambah' belum aktif (Percobaan %d). Menyegarkan...", time.Now().Format("15:04:05"), tambahAttempt))
+		
+		// Deteksi keberadaan frame
+		el, err := page.Element("frame[name='menu'], iframe[name='menu']")
+		if err == nil && el != nil {
+			// Klik ulang menu KRS pada sidebar jika ber-frame
+			menuPage := getActivePage(page, "menu")
+			krsLink, err := menuPage.Context(ctx).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
+			if err == nil && krsLink != nil {
+				krsLink.MustClick()
+			}
+		} else {
+			// Refresh biasa jika portal tanpa frame
+			_ = page.Context(ctx).Reload()
+		}
+
+		tambahAttempt++
+		time.Sleep(time.Duration(schRetryDelaySec * float64(time.Second)))
+	}
+
+	// Ambil URL form war saat ini
+	info, _ := page.Info()
+	warURL := info.URL
+	attempt := 1
+
+	// 5. Loop War Utama (Centang & Submit Kelas)
+	for attempt <= schMaxRetry {
+		ui.LogInfo(fmt.Sprintf("--- PERCOBAAN KRS WAR KE-%d ---", attempt))
+		mainPage := getActivePage(page, "main")
+
+		// Tunggu hingga tabel mata kuliah termuat
+		_, err := mainPage.Context(ctx).Element(".table-common")
+		if err != nil {
+			ui.LogWarning("Tabel mata kuliah belum muncul. Refreshing...")
+			_ = page.Context(ctx).Navigate(warURL)
+			time.Sleep(time.Duration(schRetryDelaySec * float64(time.Second)))
+			attempt++
+			continue
+		}
+
+		// Otomatis klik ekspansi semester jika menggunakan accordion
+		expands, err := mainPage.Context(ctx).ElementsX("//a[contains(text(), 'Paket Semester')]")
+		if err == nil {
+			for _, exp := range expands {
+				_, _ = exp.Eval("this.click()")
+			}
+		}
+		time.Sleep(1500 * time.Millisecond)
+
+		// Memindai baris-baris kelas pada tabel
+		rows, err := mainPage.Context(ctx).Elements("tr")
+		if err != nil {
+			ui.LogError("Gagal memindai baris tabel: " + err.Error())
+			attempt++
+			continue
+		}
+
+		tickedCount := 0
+		for _, row := range rows {
+			cols, err := row.Elements("td")
+			if err == nil && len(cols) >= 4 {
+				kw := strings.TrimSpace(cols[2].MustText()) // Kolom kelas
+				mw := strings.TrimSpace(cols[3].MustText()) // Kolom nama mata kuliah
+				
+				for _, target := range courses {
+					if strings.Contains(strings.ToLower(mw), strings.ToLower(target.Nama)) && kw == target.Kelas {
+						cb, err := cols[1].Element("input[name='kodeMkul[]']")
+						if err == nil && cb != nil {
+							// Cek apakah sudah tercentang
+							checkedVal, err := cb.Property("checked")
+							if err == nil && !checkedVal.Bool() {
+								cb.MustClick()
+								ui.LogSuccess(fmt.Sprintf("DICENTANG: %s (%s)", mw, kw))
+								tickedCount++
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Jika ada mata kuliah target yang tercentang, lakukan submit
+		if tickedCount > 0 {
+			ui.LogInfo(fmt.Sprintf("Menyerahkan %d mata kuliah target ke SIAKAD...", tickedCount))
+			submitBtn, err := mainPage.Context(ctx).ElementX("//input[@name='btnProses' or @name='btnAdd']")
+			if err == nil && submitBtn != nil {
+				submitBtn.MustClick()
+			} else {
+				ui.LogError("Tombol submit (btnProses/btnAdd) tidak ditemukan!")
+				attempt++
+				continue
+			}
+
+			// Tunggu respon server
+			ui.LogInfo(fmt.Sprintf("Menunggu konfirmasi server... Sabar %ds", sabarWait))
+			time.Sleep(2 * time.Second)
+
+			// Ambil screenshot hasil submit
+			ssData, ssErr := driver.TakeScreenshot(ctx)
+			if ssErr == nil && ssService != nil {
+				filename := fmt.Sprintf("success/war_success_attempt_%d.png", attempt)
+				ssService.QueueScreenshot(ctx, filename, ssData)
+			}
+
+			ui.LogSuccess("Mata kuliah berhasil disubmit! Silakan periksa dashboard SIAKAD Anda.")
+			break
+		} else {
+			ui.LogWarning("Mata kuliah target tidak ditemukan pada halaman ini. Menyegarkan...")
+			_ = page.Context(ctx).Navigate(warURL)
+			time.Sleep(time.Duration(schRetryDelaySec * float64(time.Second)))
+			attempt++
+		}
+	}
+
+	ui.LogSuccess("Proses war selesai. Browser dibiarkan standby untuk verifikasi manual.")
+	ui.Prompt("Tekan Enter jika sudah selesai untuk menutup browser", "")
+}
