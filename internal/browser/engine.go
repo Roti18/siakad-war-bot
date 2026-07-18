@@ -164,15 +164,15 @@ func StartWarEngine(ctx context.Context,
 
 	// 3. Navigasi Menuju Halaman KRS
 	for {
-		// Cek logout otomatis
-		usernameField, err := page.Element("#username")
+		// Cek logout otomatis (Non-blocking check)
+		usernameField, err := page.Timeout(200 * time.Millisecond).Element("#username")
 		if err == nil && usernameField != nil {
 			ui.LogWarning("Sesi putus saat navigasi! Mengulang login...")
 			loginLogic(ctx, page, baseURL, nim, password, sabarWait)
 		}
 
 		menuPage := getActivePage(page, "menu")
-		krsLink, err := menuPage.Context(ctx).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
+		krsLink, err := menuPage.Timeout(500 * time.Millisecond).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
 		if err == nil && krsLink != nil {
 			ui.LogInfo("Mengakses menu Kartu Rencana Studi...")
 			krsLink.MustClick()
@@ -189,7 +189,7 @@ func StartWarEngine(ctx context.Context,
 	xpathTambah := "//*[(self::a or self::input) and (contains(@value, 'Tambah') or contains(., 'Tambah'))]"
 	for {
 		mainPage := getActivePage(page, "main")
-		tambahBtn, err := mainPage.Context(ctx).ElementX(xpathTambah)
+		tambahBtn, err := mainPage.Timeout(200 * time.Millisecond).ElementX(xpathTambah)
 		if err == nil && tambahBtn != nil {
 			ui.LogSuccess("Tombol 'Tambah' ditemukan! Membuka Halaman Pemilihan Kelas...")
 			tambahBtn.MustClick()
@@ -198,12 +198,12 @@ func StartWarEngine(ctx context.Context,
 
 		ui.LogInfo(fmt.Sprintf("[%s] Tombol 'Tambah' belum aktif (Percobaan %d). Menyegarkan...", time.Now().Format("15:04:05"), tambahAttempt))
 		
-		// Deteksi keberadaan frame
-		el, err := page.Element("frame[name='menu'], iframe[name='menu']")
+		// Deteksi keberadaan frame (Non-blocking)
+		el, err := page.Timeout(200 * time.Millisecond).Element("frame[name='menu'], iframe[name='menu']")
 		if err == nil && el != nil {
 			// Klik ulang menu KRS pada sidebar jika ber-frame
 			menuPage := getActivePage(page, "menu")
-			krsLink, err := menuPage.Context(ctx).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
+			krsLink, err := menuPage.Timeout(200 * time.Millisecond).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
 			if err == nil && krsLink != nil {
 				krsLink.MustClick()
 			}
@@ -226,8 +226,8 @@ func StartWarEngine(ctx context.Context,
 		ui.LogInfo(fmt.Sprintf("--- PERCOBAAN KRS WAR KE-%d ---", attempt))
 		mainPage := getActivePage(page, "main")
 
-		// Tunggu hingga tabel mata kuliah termuat
-		_, err := mainPage.Context(ctx).Element(".table-common")
+		// Tunggu hingga tabel mata kuliah termuat (Non-blocking)
+		_, err := mainPage.Timeout(200 * time.Millisecond).Element(".table-common")
 		if err != nil {
 			ui.LogWarning("Tabel mata kuliah belum muncul. Refreshing...")
 			_ = page.Context(ctx).Navigate(warURL)
@@ -236,8 +236,8 @@ func StartWarEngine(ctx context.Context,
 			continue
 		}
 
-		// Otomatis klik ekspansi semester jika menggunakan accordion
-		expands, err := mainPage.Context(ctx).ElementsX("//a[contains(text(), 'Paket Semester')]")
+		// Otomatis klik ekspansi semester jika menggunakan accordion (Non-blocking)
+		expands, err := mainPage.Timeout(200 * time.Millisecond).ElementsX("//a[contains(text(), 'Paket Semester')]")
 		if err == nil {
 			for _, exp := range expands {
 				_, _ = exp.Eval("this.click()")
@@ -245,8 +245,8 @@ func StartWarEngine(ctx context.Context,
 		}
 		time.Sleep(1500 * time.Millisecond)
 
-		// Memindai baris-baris kelas pada tabel
-		rows, err := mainPage.Context(ctx).Elements("tr")
+		// Memindai baris-baris kelas pada tabel (Non-blocking)
+		rows, err := mainPage.Timeout(500 * time.Millisecond).Elements("tr")
 		if err != nil {
 			ui.LogError("Gagal memindai baris tabel: " + err.Error())
 			attempt++
@@ -255,14 +255,14 @@ func StartWarEngine(ctx context.Context,
 
 		tickedCount := 0
 		for _, row := range rows {
-			cols, err := row.Elements("td")
+			cols, err := row.Timeout(200 * time.Millisecond).Elements("td")
 			if err == nil && len(cols) >= 4 {
 				kw := strings.TrimSpace(cols[2].MustText()) // Kolom kelas
 				mw := strings.TrimSpace(cols[3].MustText()) // Kolom nama mata kuliah
 				
 				for _, target := range courses {
 					if strings.Contains(strings.ToLower(mw), strings.ToLower(target.Nama)) && kw == target.Kelas {
-						cb, err := cols[1].Element("input[name='kodeMkul[]']")
+						cb, err := cols[1].Timeout(200 * time.Millisecond).Element("input[name='kodeMkul[]']")
 						if err == nil && cb != nil {
 							// Cek apakah sudah tercentang
 							checkedVal, err := cb.Property("checked")
@@ -282,7 +282,7 @@ func StartWarEngine(ctx context.Context,
 		if tickedCount > 0 {
 			ui.LogInfo(fmt.Sprintf("Menyerahkan %d mata kuliah target ke SIAKAD...", tickedCount))
 			time.Sleep(500 * time.Millisecond) // jeda sebelum klik submit agar halaman stabil
-			submitBtn, err := mainPage.Context(ctx).ElementX("//input[@name='btnProses' or @name='btnAdd']")
+			submitBtn, err := mainPage.Timeout(200 * time.Millisecond).ElementX("//input[@name='btnProses' or @name='btnAdd']")
 			if err == nil && submitBtn != nil {
 				submitBtn.MustClick()
 			} else {
