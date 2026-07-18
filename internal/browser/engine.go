@@ -35,16 +35,16 @@ func loginLogic(ctx context.Context, page *rod.Page, baseURL, nim, password stri
 
 	ui.LogInfo("Halaman login berhasil dimuat. Menyiapkan autentikasi...")
 
-	// 1. Masukkan NIM
-	usernameEl, err := page.Context(ctx).Element("#username")
+	// 1. Masukkan NIM (Pemberian timeout 60 detik untuk server lambat)
+	usernameEl, err := page.Timeout(60 * time.Second).Element("#username")
 	if err != nil {
 		ui.LogError("Input field 'username' tidak ditemukan!")
 		return false
 	}
 	usernameEl.MustInput(nim)
 
-	// 2. Masukkan Password
-	passwordEl, err := page.Context(ctx).Element("#password")
+	// 2. Masukkan Password (Pemberian timeout 60 detik untuk server lambat)
+	passwordEl, err := page.Timeout(60 * time.Second).Element("#password")
 	if err != nil {
 		ui.LogError("Input field 'password' tidak ditemukan!")
 		return false
@@ -52,10 +52,10 @@ func loginLogic(ctx context.Context, page *rod.Page, baseURL, nim, password stri
 	passwordEl.MustInput(password)
 
 	// 3. Klik Tombol Login
-	loginBtn, err := page.Context(ctx).ElementX("//input[@type='button' and @value='Login']")
+	loginBtn, err := page.Timeout(60 * time.Second).ElementX("//input[@type='button' and @value='Login']")
 	if err != nil {
 		// Fallback ke input submit standar jika tipe button berbeda
-		loginBtn, err = page.Context(ctx).Element("input[type='submit']")
+		loginBtn, err = page.Timeout(60 * time.Second).Element("input[type='submit']")
 	}
 	if err == nil && loginBtn != nil {
 		loginBtn.MustClick()
@@ -75,15 +75,15 @@ func loginLogic(ctx context.Context, page *rod.Page, baseURL, nim, password stri
 			return true
 		}
 
-		// Cek keberadaan frame menu (Non-blocking with 200ms timeout)
-		el, err := page.Timeout(200 * time.Millisecond).ElementsX("//frame[@name='menu'] | //iframe[@name='menu']")
+		// Cek keberadaan frame menu (Non-blocking with patient 2s timeout for slow servers)
+		el, err := page.Timeout(2 * time.Second).ElementsX("//frame[@name='menu'] | //iframe[@name='menu']")
 		if err == nil && len(el) > 0 {
 			ui.LogSuccess("Login Berhasil! (Dashboard Frame)")
 			return true
 		}
 
-		// Cek link KRS langsung (Portal Baru) (Non-blocking with 200ms timeout)
-		links, err := page.Timeout(200 * time.Millisecond).ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
+		// Cek link KRS langsung (Portal Baru) (Non-blocking with patient 2s timeout for slow servers)
+		links, err := page.Timeout(2 * time.Second).ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
 		if err == nil && len(links) > 0 {
 			ui.LogSuccess("Login Berhasil! (Portal Tanpa Frame)")
 			return true
@@ -152,7 +152,7 @@ func StartWarEngine(ctx context.Context,
 	}
 
 	page := rodDriver.page
-	sabarWait := 10 // default wait timeout
+	sabarWait := 600 // default wait timeout (10 Menit)
 
 	// 1. Jalankan Logika Login
 	if !loginLogic(ctx, page, baseURL, nim, password, sabarWait) {
