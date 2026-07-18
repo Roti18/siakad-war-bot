@@ -83,6 +83,19 @@ func main() {
 		ui.BulletPoint("Tipe Lisensi", "Standard")
 		ui.BulletPoint("Kedaluwarsa", resp.ExpiresAt.Format("2006-01-02 15:04:05"))
 	}
-
 	ui.Footer()
+
+	// 6. Check Configuration and Launch Main Menu
+	if len(cfg.Courses) == 0 {
+		ui.Header("KONFIGURASI BOT BELUM LENGKAP")
+		ui.LogWarning("Target mata kuliah Anda saat ini masih kosong.")
+		if ui.PromptConfirm("Apakah Anda ingin masuk ke Menu Pengaturan sekarang?", true) {
+			cfg.RunMainMenu()
+		} else {
+			ui.LogInfo("Konfigurasi ditunda. Keluar dari aplikasi.")
+			ui.Footer()
+		}
+	} else {
+		cfg.RunMainMenu()
+	}
 }
