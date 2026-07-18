@@ -50,7 +50,7 @@ func Step(status, msg string) {
 }
 
 func BulletPoint(label, value string) {
-	fmt.Printf("%s%s│  %s %s%s%s: %s%s\n", Bold, LightCyan, Gray, Bullet, Reset, Bold, label, Reset, value)
+	fmt.Printf("%s%s│  %s %s%s%s: %s%s%s\n", Bold, LightCyan, Gray, Bullet, Reset, Bold, label, Reset, value)
 }
 
 func LogSuccess(msg string) {
@@ -72,9 +72,9 @@ func LogInfo(msg string) {
 func Prompt(label string, defaultValue string) string {
 	reader := bufio.NewReader(os.Stdin)
 	if defaultValue != "" {
-		fmt.Printf("%s%s│  %s%s %s %s(%s): %s", Bold, LightCyan, Gray, Bullet, Reset, label, Gray, defaultValue, Reset)
+		fmt.Printf("%s%s│  %s%s %s%s %s(%s): %s", Bold, LightCyan, Gray, Bullet, Reset, label, Gray, defaultValue, Reset)
 	} else {
-		fmt.Printf("%s%s│  %s%s %s: %s", Bold, LightCyan, Gray, Bullet, Reset, label, Reset)
+		fmt.Printf("%s%s│  %s%s %s%s: %s", Bold, LightCyan, Gray, Bullet, Reset, label, Reset)
 	}
 	input, _ := reader.ReadString('\n')
 	input = strings.TrimSpace(input)
