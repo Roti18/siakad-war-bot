@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/Roti18/siakad-war-bot/internal/domain"
+	"github.com/Roti18/siakad-war-bot/internal/ui"
 )
 
 type Config struct {
@@ -267,11 +268,7 @@ func SetupPrompt(envFile string) error {
 		return nil
 	}
 
-	fmt.Println("\n==================================================")
-	fmt.Println("   KRS WAR BOT CLIENT - INITIAL CONFIGURATION")
-	fmt.Println("==================================================")
-
-	reader := bufio.NewReader(os.Stdin)
+	ui.Header("KRS WAR BOT CLIENT - SETUP KONFIGURASI")
 
 	// 1. API_SERVER_URL
 	defaultServerURL := "http://localhost:8080"
@@ -279,19 +276,9 @@ func SetupPrompt(envFile string) error {
 		defaultServerURL = env["API_SERVER_URL"]
 	}
 
-	fmt.Printf("Default API Server URL: %s\n", defaultServerURL)
-	fmt.Print("Gunakan API Server default ini? (Y/n atau tekan Enter untuk ya): ")
-	useDefaultServerInput, _ := reader.ReadString('\n')
-	useDefaultServerInput = strings.TrimSpace(strings.ToLower(useDefaultServerInput))
-
 	apiServerURL := defaultServerURL
-	if useDefaultServerInput != "" && useDefaultServerInput != "y" && useDefaultServerInput != "yes" {
-		fmt.Print("Masukkan API Server URL Baru: ")
-		customServerURLInput, _ := reader.ReadString('\n')
-		customServerURLInput = strings.TrimSpace(customServerURLInput)
-		if customServerURLInput != "" {
-			apiServerURL = customServerURLInput
-		}
+	if !ui.PromptConfirm("Gunakan API Server default ("+defaultServerURL+")?", true) {
+		apiServerURL = ui.PromptRequired("Masukkan API Server URL Baru")
 	}
 
 	// 2. BASE_URL
@@ -300,48 +287,22 @@ func SetupPrompt(envFile string) error {
 		defaultURL = env["BASE_URL"]
 	}
 
-	fmt.Printf("Default Base URL: %s\n", defaultURL)
-	fmt.Print("Gunakan URL default ini? (Y/n atau tekan Enter untuk ya): ")
-	useDefaultInput, _ := reader.ReadString('\n')
-	useDefaultInput = strings.TrimSpace(strings.ToLower(useDefaultInput))
-
 	baseURL := defaultURL
-	if useDefaultInput != "" && useDefaultInput != "y" && useDefaultInput != "yes" {
-		fmt.Print("Masukkan BASE_URL Baru: ")
-		customURLInput, _ := reader.ReadString('\n')
-		customURLInput = strings.TrimSpace(customURLInput)
-		if customURLInput != "" {
-			baseURL = customURLInput
-		}
+	if !ui.PromptConfirm("Gunakan BASE_URL default ("+defaultURL+")?", true) {
+		baseURL = ui.PromptRequired("Masukkan BASE_URL Baru")
 	}
 
 	// 3. NIM
-	var nim string
-	for {
-		fmt.Print("Masukkan NIM Anda: ")
-		nimInput, _ := reader.ReadString('\n')
-		nim = strings.TrimSpace(nimInput)
-		if nim != "" {
-			break
-		}
-		fmt.Println("NIM tidak boleh kosong!")
-	}
+	nim := ui.PromptRequired("Masukkan NIM Anda")
 
 	// 4. PASSWORD
-	var password string
-	for {
-		fmt.Print("Masukkan PASSWORD Anda: ")
-		pwdInput, _ := reader.ReadString('\n')
-		password = strings.TrimSpace(pwdInput)
-		if password != "" {
-			break
-		}
-		fmt.Println("PASSWORD tidak boleh kosong!")
-	}
+	password := ui.PromptRequired("Masukkan PASSWORD Anda")
 
 	// Save to .env
 	err := SaveEnv(envFile, apiServerURL, baseURL, nim, password)
 	if err != nil {
+		ui.LogError("Gagal menyimpan file .env: " + err.Error())
+		ui.Footer()
 		return fmt.Errorf("gagal menyimpan file .env: %w", err)
 	}
 
@@ -351,8 +312,8 @@ func SetupPrompt(envFile string) error {
 	os.Setenv("NIM", nim)
 	os.Setenv("PASSWORD", password)
 
-	fmt.Println("\n[✔] Konfigurasi berhasil disimpan ke", envFile)
-	fmt.Println("==================================================\n")
+	ui.LogSuccess("Konfigurasi berhasil disimpan ke " + envFile)
+	ui.Footer()
 	return nil
 }
 

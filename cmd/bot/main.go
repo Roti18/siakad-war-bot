@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/Roti18/siakad-war-bot/internal/config"
 	"github.com/Roti18/siakad-war-bot/internal/security"
+	"github.com/Roti18/siakad-war-bot/internal/ui"
 )
 
 func main() {
@@ -18,9 +18,7 @@ func main() {
 		return
 	}
 
-	fmt.Println("==================================================")
-	fmt.Println("       KRS WAR BOT CLIENT - LICENSE DEMO")
-	fmt.Println("==================================================")
+	ui.Header("KRS WAR BOT CLIENT - LICENSE DEMO")
 
 	cfg := config.NewConfigManager("configs/config.json")
 	if err := cfg.Load(); err != nil {
@@ -29,10 +27,11 @@ func main() {
 
 	hash, err := security.GetDeviceFingerprint()
 	if err != nil {
-		fmt.Printf("Error fingerprint: %v\n", err)
+		ui.LogError("Gagal membaca device fingerprint: " + err.Error())
+		ui.Footer()
 		return
 	}
-	fmt.Printf("[✔] Device Fingerprint: %s\n", hash)
+	ui.BulletPoint("Device Fingerprint", hash)
 
 	// 2. Initialize Secret Store & Auth Client
 	store := security.NewSecretStore("credentials.dat")
@@ -43,60 +42,47 @@ func main() {
 	if apiServerURL == "" {
 		apiServerURL = "http://localhost:8080"
 	}
-	fmt.Printf("[i] Menghubungkan ke API Server: %s\n", apiServerURL)
+	ui.BulletPoint("API Server URL", apiServerURL)
 
 	// 3. Load or Prompt License Key
 	licenseKey, err := auth.GetSavedLicenseKey(ctx)
-	reader := bufio.NewReader(os.Stdin)
 
 	if err != nil || strings.TrimSpace(licenseKey) == "" {
-		fmt.Println("\n[!] Lisensi tidak ditemukan di penyimpanan lokal.")
-		fmt.Print("Masukkan Kunci Lisensi (License Key): ")
-		input, _ := reader.ReadString('\n')
-		licenseKey = strings.TrimSpace(input)
-
-		if licenseKey == "" {
-			fmt.Println("Error: Kunci lisensi tidak boleh kosong!")
-			return
-		}
+		ui.LogWarning("Lisensi tidak ditemukan di penyimpanan lokal.")
+		licenseKey = ui.PromptRequired("Masukkan Kunci Lisensi (License Key)")
 	} else {
-		fmt.Printf("[✔] Lisensi ditemukan di lokal: %s\n", licenseKey)
-		fmt.Print("Gunakan lisensi lokal ini? (Y/n atau tekan Enter untuk ya): ")
-		useLocal, _ := reader.ReadString('\n')
-		useLocal = strings.TrimSpace(strings.ToLower(useLocal))
-		if useLocal != "" && useLocal != "y" && useLocal != "yes" {
-			fmt.Print("Masukkan Kunci Lisensi Baru: ")
-			input, _ := reader.ReadString('\n')
-			licenseKey = strings.TrimSpace(input)
-			if licenseKey == "" {
-				fmt.Println("Error: Kunci lisensi tidak boleh kosong!")
-				return
-			}
+		ui.LogInfo("Lisensi ditemukan di lokal: " + licenseKey)
+		if !ui.PromptConfirm("Gunakan lisensi lokal ini?", true) {
+			licenseKey = ui.PromptRequired("Masukkan Kunci Lisensi Baru")
 		}
 	}
 
 	// 4. Verify License with Server
-	fmt.Println("[...] Memverifikasi lisensi ke server...")
+	ui.LogInfo("Memverifikasi lisensi ke server...")
 	resp, err := auth.VerifyLicense(ctx, apiServerURL, licenseKey)
 	if err != nil {
-		fmt.Printf("\n[❌] Verifikasi Lisensi Gagal!\nError: %v\n", err)
+		ui.LogError("Verifikasi Lisensi Gagal!")
+		ui.BulletPoint("ErrorDetail", err.Error())
 		// Bersihkan sesi jika gagal
 		_ = auth.ClearSession(ctx)
+		ui.Footer()
 		return
 	}
 
 	// 5. Display Verification Success Details
-	fmt.Println("\n[✔] VERIFIKASI LISENSI BERHASIL!")
-	fmt.Printf("- Key: %s\n", resp.LicenseKey)
-	fmt.Printf("- Status: %s\n", resp.Status)
+	ui.LogSuccess("VERIFIKASI LISENSI BERHASIL!")
+	ui.BulletPoint("License Key", resp.LicenseKey)
+	ui.BulletPoint("Status", resp.Status)
+	
 	if resp.IsLifetime {
-		fmt.Println("- Tipe: Lifetime (Seumur Hidup)")
+		ui.BulletPoint("Tipe Lisensi", "Lifetime (Seumur Hidup)")
 	} else if resp.IsTrial {
-		fmt.Println("- Tipe: Uji Coba (Trial)")
-		fmt.Printf("- Kedaluwarsa: %s\n", resp.ExpiresAt.Format("2006-01-02 15:04:05"))
+		ui.BulletPoint("Tipe Lisensi", "Uji Coba (Trial)")
+		ui.BulletPoint("Kedaluwarsa", resp.ExpiresAt.Format("2006-01-02 15:04:05"))
 	} else {
-		fmt.Println("- Tipe: Standar")
-		fmt.Printf("- Kedaluwarsa: %s\n", resp.ExpiresAt.Format("2006-01-02 15:04:05"))
+		ui.BulletPoint("Tipe Lisensi", "Standard")
+		ui.BulletPoint("Kedaluwarsa", resp.ExpiresAt.Format("2006-01-02 15:04:05"))
 	}
-	fmt.Println("==================================================")
+
+	ui.Footer()
 }
