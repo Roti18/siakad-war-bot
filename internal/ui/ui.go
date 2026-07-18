@@ -50,7 +50,7 @@ func Step(status, msg string) {
 }
 
 func BulletPoint(label, value string) {
-	fmt.Printf("%s%s│  %s %s%s%s: %s%s%s\n", Bold, LightCyan, Gray, Bullet, Reset, Bold, label, Reset, value)
+	fmt.Printf("%s%s│  %s %s%s%s %s: %s%s\n", Bold, LightCyan, Gray, Bullet, Reset, Bold, label, Reset, value)
 }
 
 func LogSuccess(msg string) {

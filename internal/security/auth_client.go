@@ -79,10 +79,21 @@ func (c *authClient) VerifyLicense(ctx context.Context, apiServerURL, licenseKey
 		return nil, fmt.Errorf("server returned error (%d): %s", resp.StatusCode, string(bodyBytes))
 	}
 
-	var verifyResp dto.LicenseVerifyResponse
-	err = json.NewDecoder(resp.Body).Decode(&verifyResp)
+	var apiResp dto.APIResponse
+	err = json.NewDecoder(resp.Body).Decode(&apiResp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	dataBytes, err := json.Marshal(apiResp.Data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to process data payload: %w", err)
+	}
+
+	var verifyResp dto.LicenseVerifyResponse
+	err = json.Unmarshal(dataBytes, &verifyResp)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode license data: %w", err)
 	}
 
 	err = c.store.Save(ctx, "jwt_token", []byte(verifyResp.Token))
