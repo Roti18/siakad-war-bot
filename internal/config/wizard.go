@@ -57,7 +57,7 @@ func (c *Config) RunMainMenu() {
 			}
 			
 			ctx := context.Background()
-			err := driver.Launch(ctx, profileMode, policy)
+			err := driver.Launch(ctx, c.Browser.Headless, profileMode, policy)
 			if err != nil {
 				ui.LogError("Gagal meluncurkan browser: " + err.Error())
 				ui.Footer()

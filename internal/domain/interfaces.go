@@ -18,7 +18,7 @@ type BlockPolicy struct {
 
 // BrowserDriver mendefinisikan plugin abstraksi otomasi browser
 type BrowserDriver interface {
-	Launch(ctx context.Context, profileMode string, blockPolicy BlockPolicy) error
+	Launch(ctx context.Context, headless bool, profileMode string, blockPolicy BlockPolicy) error
 	Navigate(ctx context.Context, url string) error
 	CurrentURL(ctx context.Context) (string, error)
 	Refresh(ctx context.Context) error

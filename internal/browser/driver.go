@@ -27,8 +27,8 @@ func PreDownloadBrowser() error {
 	return nil
 }
 
-func (d *RodDriver) Launch(ctx context.Context, profileMode string, blockPolicy domain.BlockPolicy) error {
-	l := launcher.New().Leakless(false)
+func (d *RodDriver) Launch(ctx context.Context, headless bool, profileMode string, blockPolicy domain.BlockPolicy) error {
+	l := launcher.New().Leakless(false).Headless(headless)
 	
 	// Server/Client optimization flags
 	l.Set("disable-background-networking").
