@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 
 	"github.com/Roti18/siakad-war-bot/internal/domain"
@@ -18,12 +19,13 @@ func (c *Config) RunMainMenu() {
 		ui.BulletPoint("[2]", "Konfigurasi Browser (Headless, Block Assets)")
 		ui.BulletPoint("[3]", "Atur Target Mata Kuliah (Courses)")
 		ui.BulletPoint("[4]", "Konfigurasi Jadwal & Percobaan (Schedule)")
-		ui.BulletPoint("[5]", "Lihat Pengaturan Saat Ini")
-		ui.BulletPoint("[6]", "Keluar (Exit)")
+		ui.BulletPoint("[5]", "Konfigurasi Akun & Server (.env)")
+		ui.BulletPoint("[6]", "Lihat Pengaturan Saat Ini")
+		ui.BulletPoint("[7]", "Keluar (Exit)")
 		
 		ui.Footer()
 		
-		choice := ui.Prompt("Pilih menu (1-6)", "1")
+		choice := ui.Prompt("Pilih menu (1-7)", "1")
 		
 		switch choice {
 		case "1":
@@ -47,15 +49,17 @@ func (c *Config) RunMainMenu() {
 		case "4":
 			c.ConfigureSchedule()
 		case "5":
-			c.ShowCurrentSettings()
+			c.ConfigureAccount(".env")
 		case "6":
+			c.ShowCurrentSettings()
+		case "7":
 			ui.Header("KELUAR APLIKASI")
 			ui.LogInfo("Terima kasih telah menggunakan KRS War Bot!")
 			ui.Footer()
 			return
 		default:
 			ui.Header("INPUT SALAH")
-			ui.LogError("Pilihan tidak valid. Silakan pilih nomor 1 sampai 6.")
+			ui.LogError("Pilihan tidak valid. Silakan pilih nomor 1 sampai 7.")
 			ui.Footer()
 		}
 	}
@@ -243,4 +247,47 @@ func (c *Config) ShowCurrentSettings() {
 
 	ui.Footer()
 	ui.Prompt("Tekan Enter untuk kembali ke Menu Utama", "")
+}
+
+func (c *Config) ConfigureAccount(envFile string) {
+	ui.Header("KONFIGURASI AKUN & SERVER")
+
+	env, _ := LoadEnv(envFile)
+	currentAPIServer := "http://localhost:8080"
+	currentBaseURL := "https://siakad.example.ac.id/"
+	currentNIM := ""
+	currentPassword := ""
+
+	if env != nil {
+		if val, ok := env["API_SERVER_URL"]; ok && val != "" {
+			currentAPIServer = val
+		}
+		if val, ok := env["BASE_URL"]; ok && val != "" {
+			currentBaseURL = val
+		}
+		if val, ok := env["NIM"]; ok && val != "" {
+			currentNIM = val
+		}
+		if val, ok := env["PASSWORD"]; ok && val != "" {
+			currentPassword = val
+		}
+	}
+
+	apiServerURL := ui.Prompt("Masukkan IP/URL Server API", currentAPIServer)
+	baseURL := ui.Prompt("Masukkan BASE_URL SIAKAD", currentBaseURL)
+	nim := ui.Prompt("Masukkan NIM Anda", currentNIM)
+	password := ui.Prompt("Masukkan PASSWORD Anda", currentPassword)
+
+	err := SaveEnv(envFile, apiServerURL, baseURL, nim, password)
+	if err != nil {
+		ui.LogError("Gagal menyimpan konfigurasi akun: " + err.Error())
+	} else {
+		// Update current OS env variables
+		os.Setenv("API_SERVER_URL", apiServerURL)
+		os.Setenv("BASE_URL", baseURL)
+		os.Setenv("NIM", nim)
+		os.Setenv("PASSWORD", password)
+		ui.LogSuccess("Konfigurasi akun berhasil disimpan ke " + envFile + "!")
+	}
+	ui.Footer()
 }

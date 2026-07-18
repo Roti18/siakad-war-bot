@@ -1,6 +1,6 @@
 {
   "browser": {
-    "headless": false,
+    "headless": true,
     "width": 1920,
     "height": 1080,
     "block_images": true,
@@ -14,7 +14,7 @@
   },
   "schedule": {
     "date": "",
-    "time": "09:00:00",
+    "time": "14:00:00",
     "standby_before_minutes": 10,
     "refresh_interval_seconds": 300,
     "retry_delay_seconds": 0.5,
@@ -25,7 +25,7 @@
     "http_timeout_seconds": 30,
     "connection_timeout_seconds": 10,
     "retry_count": 3,
-    "retry_delay_seconds": 2.0
+    "retry_delay_seconds": 2
   },
   "screenshot": {
     "enable": true,
@@ -35,5 +35,14 @@
     "screenshot_before_submit": false,
     "screenshot_after_submit": true
   },
-  "courses": []
+  "courses": [
+    {
+      "nama": "bolang",
+      "kelas": "if anjany"
+    },
+    {
+      "nama": "anjay",
+      "kelas": "uf anbahjgf"
+    }
+  ]
 }
