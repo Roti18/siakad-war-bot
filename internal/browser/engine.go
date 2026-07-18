@@ -75,15 +75,15 @@ func loginLogic(ctx context.Context, page *rod.Page, baseURL, nim, password stri
 			return true
 		}
 
-		// Cek keberadaan frame menu (Non-blocking)
-		el, err := page.Timeout(0).Element("frame[name='menu'], iframe[name='menu']")
-		if err == nil && el != nil {
+		// Cek keberadaan frame menu (Non-blocking with 200ms timeout)
+		el, err := page.Timeout(200 * time.Millisecond).ElementsX("//frame[@name='menu'] | //iframe[@name='menu']")
+		if err == nil && len(el) > 0 {
 			ui.LogSuccess("Login Berhasil! (Dashboard Frame)")
 			return true
 		}
 
-		// Cek link KRS langsung (Portal Baru) (Non-blocking)
-		links, err := page.Timeout(0).ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
+		// Cek link KRS langsung (Portal Baru) (Non-blocking with 200ms timeout)
+		links, err := page.Timeout(200 * time.Millisecond).ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
 		if err == nil && len(links) > 0 {
 			ui.LogSuccess("Login Berhasil! (Portal Tanpa Frame)")
 			return true
