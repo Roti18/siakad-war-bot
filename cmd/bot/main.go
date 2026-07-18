@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Roti18/siakad-war-bot/internal/browser"
 	"github.com/Roti18/siakad-war-bot/internal/config"
 	"github.com/Roti18/siakad-war-bot/internal/security"
 	"github.com/Roti18/siakad-war-bot/internal/ui"
@@ -83,6 +84,20 @@ func main() {
 		ui.BulletPoint("Tipe Lisensi", "Standard")
 		ui.BulletPoint("Kedaluwarsa", resp.ExpiresAt.Format("2006-01-02 15:04:05"))
 	}
+	ui.Footer()
+
+	// 5b. Pre-download Chromium browser dependencies if not cached
+	ui.Header("PENGINSTALAN DEPENDENSI BROWSER")
+	ui.LogInfo("Memeriksa kesiapan mesin browser (Chromium)...")
+	ui.LogInfo("Mohon tunggu, proses download ini hanya satu kali saja (jika belum ada).")
+	fmt.Println("")
+	err = browser.PreDownloadBrowser()
+	if err != nil {
+		ui.LogError("Gagal menginstal dependensi browser: " + err.Error())
+		ui.Footer()
+		return
+	}
+	ui.LogSuccess("Mesin browser Chromium siap digunakan!")
 	ui.Footer()
 
 	// 6. Check Configuration and Launch Main Menu

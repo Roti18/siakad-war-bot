@@ -21,6 +21,12 @@ func NewBrowserDriver() domain.BrowserDriver {
 	return &RodDriver{}
 }
 
+func PreDownloadBrowser() error {
+	l := launcher.NewBrowser()
+	l.Download()
+	return nil
+}
+
 func (d *RodDriver) Launch(ctx context.Context, profileMode string, blockPolicy domain.BlockPolicy) error {
 	l := launcher.New()
 	
