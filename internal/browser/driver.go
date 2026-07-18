@@ -22,6 +22,10 @@ func NewBrowserDriver() domain.BrowserDriver {
 }
 
 func PreDownloadBrowser() error {
+	if _, found := launcher.LookPath(); found {
+		// Browser already exists on system, skip download
+		return nil
+	}
 	l := launcher.NewBrowser()
 	l.Download()
 	return nil
