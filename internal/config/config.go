@@ -275,22 +275,14 @@ func SetupPrompt(envFile string) error {
 	if env != nil && env["API_SERVER_URL"] != "" {
 		defaultServerURL = env["API_SERVER_URL"]
 	}
-
-	apiServerURL := defaultServerURL
-	if !ui.PromptConfirm("Gunakan API Server default ("+defaultServerURL+")?", true) {
-		apiServerURL = ui.PromptRequired("Masukkan API Server URL Baru")
-	}
+	apiServerURL := ui.Prompt("Masukkan IP/URL Server API", defaultServerURL)
 
 	// 2. BASE_URL
 	defaultURL := getDefaultURL()
 	if env != nil && env["BASE_URL"] != "" {
 		defaultURL = env["BASE_URL"]
 	}
-
-	baseURL := defaultURL
-	if !ui.PromptConfirm("Gunakan BASE_URL default ("+defaultURL+")?", true) {
-		baseURL = ui.PromptRequired("Masukkan BASE_URL Baru")
-	}
+	baseURL := ui.Prompt("Masukkan BASE_URL SIAKAD", defaultURL)
 
 	// 3. NIM
 	nim := ui.PromptRequired("Masukkan NIM Anda")
