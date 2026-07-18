@@ -75,15 +75,15 @@ func loginLogic(ctx context.Context, page *rod.Page, baseURL, nim, password stri
 			return true
 		}
 
-		// Cek keberadaan frame menu
-		el, err := page.Element("frame[name='menu'], iframe[name='menu']")
+		// Cek keberadaan frame menu (Non-blocking)
+		el, err := page.Timeout(0).Element("frame[name='menu'], iframe[name='menu']")
 		if err == nil && el != nil {
 			ui.LogSuccess("Login Berhasil! (Dashboard Frame)")
 			return true
 		}
 
-		// Cek link KRS langsung (Portal Baru)
-		links, err := page.ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
+		// Cek link KRS langsung (Portal Baru) (Non-blocking)
+		links, err := page.Timeout(0).ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
 		if err == nil && len(links) > 0 {
 			ui.LogSuccess("Login Berhasil! (Portal Tanpa Frame)")
 			return true
@@ -270,6 +270,7 @@ func StartWarEngine(ctx context.Context,
 								cb.MustClick()
 								ui.LogSuccess(fmt.Sprintf("DICENTANG: %s (%s)", mw, kw))
 								tickedCount++
+								time.Sleep(300 * time.Millisecond) // jeda setelah mencentang agar sinkron
 							}
 						}
 					}
@@ -280,6 +281,7 @@ func StartWarEngine(ctx context.Context,
 		// Jika ada mata kuliah target yang tercentang, lakukan submit
 		if tickedCount > 0 {
 			ui.LogInfo(fmt.Sprintf("Menyerahkan %d mata kuliah target ke SIAKAD...", tickedCount))
+			time.Sleep(500 * time.Millisecond) // jeda sebelum klik submit agar halaman stabil
 			submitBtn, err := mainPage.Context(ctx).ElementX("//input[@name='btnProses' or @name='btnAdd']")
 			if err == nil && submitBtn != nil {
 				submitBtn.MustClick()
