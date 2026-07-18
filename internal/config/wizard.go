@@ -1,10 +1,12 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
 
+	"github.com/Roti18/siakad-war-bot/internal/browser"
 	"github.com/Roti18/siakad-war-bot/internal/domain"
 	"github.com/Roti18/siakad-war-bot/internal/ui"
 )
@@ -38,10 +40,53 @@ func (c *Config) RunMainMenu() {
 			}
 			ui.LogSuccess("Mata kuliah target terkonfigurasi. Memulai engine KRS War...")
 			ui.LogInfo("Mencari kelas untuk " + strconv.Itoa(len(c.Courses)) + " mata kuliah...")
-			// Di sini engine utama (browser automation Rod) akan berjalan
-			ui.LogInfo("Bot standby... Menunggu jadwal KRS aktif.")
+			
+			// 1. Inisialisasi Browser Driver
+			ui.LogInfo("Membuka browser Chromium (Headless: " + strconv.FormatBool(c.Browser.Headless) + ")...")
+			driver := browser.NewBrowserDriver()
+			policy := domain.BlockPolicy{
+				CSS:   c.Browser.BlockCSS,
+				Image: c.Browser.BlockImages,
+				Font:  c.Browser.BlockFonts,
+				Media: c.Browser.BlockMedia,
+			}
+			
+			profileMode := "Incognito"
+			if !c.Browser.EnableIncognito {
+				profileMode = "Persistent"
+			}
+			
+			ctx := context.Background()
+			err := driver.Launch(ctx, profileMode, policy)
+			if err != nil {
+				ui.LogError("Gagal meluncurkan browser: " + err.Error())
+				ui.Footer()
+				break
+			}
+			
+			baseURL := os.Getenv("BASE_URL")
+			if baseURL == "" {
+				baseURL = "https://siakad.trunojoyo.ac.id/"
+			}
+			
+			ui.LogInfo("Navigasi ke SIAKAD Portal: " + baseURL)
+			err = driver.Navigate(ctx, baseURL)
+			if err != nil {
+				ui.LogError("Gagal memuat halaman: " + err.Error())
+				_ = driver.Close()
+				ui.Footer()
+				break
+			}
+			
+			ui.LogSuccess("Bot berhasil login standby! Menunggu jadwal KRS aktif...")
+			ui.LogWarning("PERINGATAN: Jangan menutup jendela Chrome secara manual.")
+			fmt.Println("")
+			ui.Prompt("Tekan Enter untuk menghentikan bot dan menutup browser", "")
+			
+			ui.LogInfo("Menutup browser...")
+			_ = driver.Close()
+			ui.LogSuccess("Bot dihentikan dengan aman.")
 			ui.Footer()
-			return // Keluar ke main untuk menjalankan loop utama bot jika sudah diimplementasikan
 		case "2":
 			c.ConfigureBrowser()
 		case "3":
