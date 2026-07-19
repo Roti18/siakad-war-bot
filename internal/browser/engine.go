@@ -110,7 +110,7 @@ func loginLogic(ctx context.Context, page *rod.Page, baseURL, nim, password stri
 		}
 
 		// B. Cek link KRS langsung (Portal Baru) (Non-blocking dengan 500ms timeout)
-		links, err := page.Timeout(500 * time.Millisecond).ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
+		links, err := page.Timeout(500 * time.Millisecond).ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'KRS')]")
 		if err == nil && len(links) > 0 {
 			ui.LogSuccess("Login Berhasil! (Portal Tanpa Frame)")
 			return true
@@ -227,7 +227,7 @@ func StartWarEngine(ctx context.Context,
 			}
 
 			ui.LogError("Menu KRS tidak ditemukan! Merefresh Dashboard...")
-			_ = page.Context(ctx).Navigate(baseURL + "index.php")
+			_ = page.Context(ctx).Reload()
 			time.Sleep(2 * time.Second)
 		}
 	}
