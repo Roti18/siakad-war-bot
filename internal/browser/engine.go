@@ -200,32 +200,50 @@ func StartWarEngine(ctx context.Context,
 	waitUntilWar(ctx, page, schTime, schRefreshIntervalSec, baseURL, nim, password, sabarWait)
 
 	// 3. Navigasi Menuju Halaman KRS
-	for {
-		// Cek logout otomatis (Non-blocking check)
-		usernameField, err := page.Timeout(500 * time.Millisecond).Element("#username")
-		if err == nil && usernameField != nil {
-			ui.LogWarning("Sesi putus saat navigasi! Mengulang login...")
-			loginLogic(ctx, page, baseURL, nim, password, sabarWait)
-		}
+	xpathTambah := "//*[(self::a or self::input) and (contains(@value, 'Tambah') or contains(., 'Tambah'))]"
+	
+	// Pengecekan awal: Apakah kita sudah berada di halaman Tambah KRS atau halaman pemilihan kelas?
+	mainPageCheck := getActivePage(page, "main")
+	hasTambah, _ := mainPageCheck.Timeout(1 * time.Second).ElementX(xpathTambah)
+	hasTable, _ := mainPageCheck.Timeout(1 * time.Second).Element(".table-common")
 
-		menuPage := getActivePage(page, "menu")
-		krsLink, err := menuPage.Timeout(10 * time.Second).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
-		if err == nil && krsLink != nil {
-			ui.LogInfo("Mengakses menu Kartu Rencana Studi...")
-			krsLink.MustClick()
-			break
-		}
+	if hasTambah != nil || hasTable != nil {
+		ui.LogSuccess("Sudah berada di halaman war KRS! Melewati navigasi menu.")
+	} else {
+		for {
+			// Cek logout otomatis (Non-blocking check)
+			usernameField, err := page.Timeout(500 * time.Millisecond).Element("#username")
+			if err == nil && usernameField != nil {
+				ui.LogWarning("Sesi putus saat navigasi! Mengulang login...")
+				loginLogic(ctx, page, baseURL, nim, password, sabarWait)
+			}
 
-		ui.LogError("Menu KRS tidak ditemukan! Merefresh Dashboard...")
-		_ = page.Context(ctx).Navigate(baseURL + "index.php")
-		time.Sleep(2 * time.Second)
+			menuPage := getActivePage(page, "menu")
+			krsLink, err := menuPage.Timeout(10 * time.Second).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
+			if err == nil && krsLink != nil {
+				ui.LogInfo("Mengakses menu Kartu Rencana Studi...")
+				krsLink.MustClick()
+				break
+			}
+
+			ui.LogError("Menu KRS tidak ditemukan! Merefresh Dashboard...")
+			_ = page.Context(ctx).Navigate(baseURL + "index.php")
+			time.Sleep(2 * time.Second)
+		}
 	}
 
 	// 4. Klik Tombol "Tambah" KRS
 	tambahAttempt := 1
-	xpathTambah := "//*[(self::a or self::input) and (contains(@value, 'Tambah') or contains(., 'Tambah'))]"
 	for {
 		mainPage := getActivePage(page, "main")
+
+		// Pengecekan awal: Jika sudah berada di halaman pemilihan kelas (tabel KRS sudah muncul), langsung bypass!
+		_, errTable := mainPage.Timeout(1 * time.Second).Element(".table-common")
+		if errTable == nil {
+			ui.LogSuccess("Halaman Pemilihan Kelas terdeteksi aktif! Melewati tombol 'Tambah'.")
+			break
+		}
+
 		tambahBtn, err := mainPage.Timeout(5 * time.Second).ElementX(xpathTambah)
 		if err == nil && tambahBtn != nil {
 			ui.LogSuccess("Tombol 'Tambah' ditemukan! Membuka Halaman Pemilihan Kelas...")
