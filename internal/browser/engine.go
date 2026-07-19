@@ -110,7 +110,7 @@ func loginLogic(ctx context.Context, page *rod.Page, baseURL, nim, password stri
 		}
 
 		// B. Cek link KRS langsung (Portal Baru) (Non-blocking dengan 500ms timeout)
-		links, err := page.Timeout(500 * time.Millisecond).ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'KRS')]")
+		links, err := page.Timeout(500 * time.Millisecond).ElementsX("//a[contains(., 'Kartu Rencana Studi')]")
 		if err == nil && len(links) > 0 {
 			ui.LogSuccess("Login Berhasil! (Portal Tanpa Frame)")
 			return true
@@ -219,7 +219,7 @@ func StartWarEngine(ctx context.Context,
 			}
 
 			menuPage := getActivePage(page, "menu")
-			krsLink, err := menuPage.Timeout(10 * time.Second).ElementX("//a[contains(., 'Kartu Rencana') or contains(., 'KRS')]")
+			krsLink, err := menuPage.Timeout(10 * time.Second).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
 			if err == nil && krsLink != nil {
 				ui.LogInfo("Mengakses menu Kartu Rencana Studi...")
 				krsLink.MustClick()
@@ -258,7 +258,7 @@ func StartWarEngine(ctx context.Context,
 		if err == nil && el != nil {
 			// Klik ulang menu KRS pada sidebar jika ber-frame
 			menuPage := getActivePage(page, "menu")
-			krsLink, err := menuPage.Timeout(2 * time.Second).ElementX("//a[contains(., 'Kartu Rencana') or contains(., 'KRS')]")
+			krsLink, err := menuPage.Timeout(2 * time.Second).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
 			if err == nil && krsLink != nil {
 				krsLink.MustClick()
 			}
