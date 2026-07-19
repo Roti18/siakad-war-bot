@@ -79,7 +79,7 @@ func (c *Config) RunMainMenu() {
 			password := os.Getenv("PASSWORD")
 
 			// 3. Jalankan Engine KRS War Utama
-			browser.StartWarEngine(ctx, driver, c.Courses, c.Schedule.Time, c.Schedule.RefreshIntervalSec, c.Schedule.RetryDelaySec, c.Schedule.MaxRetry, nim, password, baseURL, ssService)
+			browser.StartWarEngine(ctx, driver, c.Courses, c.Schedule.Time, c.Schedule.RefreshIntervalSec, c.Schedule.RetryDelaySec, c.Schedule.MaxRetry, nim, password, baseURL, c.Screenshot.SaveDirectory, ssService)
 			ui.Footer()
 		case "2":
 			c.ConfigureBrowser()

@@ -3,6 +3,8 @@ package browser
 import (
 	"context"
 	"fmt"
+	"os/exec"
+	"runtime"
 	"strings"
 	"time"
 
@@ -152,6 +154,7 @@ func StartWarEngine(ctx context.Context,
 	schRetryDelaySec float64,
 	schMaxRetry int,
 	nim, password, baseURL string,
+	ssSaveDir string,
 	ssService domain.ScreenshotService) {
 	
 	rodDriver, ok := driver.(*RodDriver)
@@ -322,5 +325,21 @@ func StartWarEngine(ctx context.Context,
 	}
 
 	ui.LogSuccess("Proses war selesai. Browser dibiarkan standby untuk verifikasi manual.")
+	ui.LogInfo("Membuka folder hasil tangkapan layar (" + ssSaveDir + ")...")
+	openFolder(ssSaveDir)
 	ui.Prompt("Tekan Enter jika sudah selesai untuk menutup browser", "")
+}
+
+// openFolder opens the given directory path in the OS default file explorer
+func openFolder(path string) {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("explorer", path)
+	case "darwin":
+		cmd = exec.Command("open", path)
+	default: // linux
+		cmd = exec.Command("xdg-open", path)
+	}
+	_ = cmd.Start()
 }
