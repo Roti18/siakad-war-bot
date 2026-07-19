@@ -11,6 +11,7 @@ import (
 	"github.com/Roti18/siakad-war-bot/internal/domain"
 	"github.com/Roti18/siakad-war-bot/internal/ui"
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/proto"
 )
 
 // getActivePage returns the frame page context if it exists, otherwise the main page
@@ -27,37 +28,61 @@ func getActivePage(page *rod.Page, name string) *rod.Page {
 
 // loginLogic automates the logging in process and waits for the dashboard to appear
 func loginLogic(ctx context.Context, page *rod.Page, baseURL, nim, password string, timeoutSec int) bool {
+	// A. Cek apakah saat ini kita SUDAH berada di dashboard (misal jika browser sudah terbuka dan session aktif)
+	hasKrs, _ := page.Timeout(500 * time.Millisecond).ElementX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
+	hasFrame, _ := page.Timeout(500 * time.Millisecond).ElementsX("//frame[@name='menu'] | //iframe[@name='menu']")
+	if (hasKrs != nil) || (len(hasFrame) > 0) {
+		ui.LogSuccess("Sesi aktif terdeteksi! Langsung menuju Dashboard.")
+		return true
+	}
+
+	// B. Daftarkan handler dialog untuk mendeteksi alert (misal password salah) agar tidak nge-hang
+	go page.EachEvent(func(e *proto.PageJavascriptDialogOpening) {
+		ui.LogError("Alert SIAKAD: " + e.Message)
+		// Setujui dialog untuk menutup popup alert agar halaman tidak terkunci
+		_ = proto.PageHandleJavaScriptDialog{
+			Accept:     true,
+			PromptText: "",
+		}.Call(page)
+	})
+
+	// C. Jika belum di dashboard, baru navigasi ke index.php
 	url := baseURL + "index.php"
 	ui.LogInfo("Menghubungi website: " + url + " ...")
-	
 	if err := page.Context(ctx).Navigate(url); err != nil {
 		ui.LogError("Gagal memuat halaman login: " + err.Error())
 		return false
 	}
 
-	ui.LogInfo("Halaman login berhasil dimuat. Menyiapkan autentikasi...")
-
-	// 1. Masukkan NIM (Pemberian timeout 60 detik untuk server lambat)
-	usernameEl, err := page.Timeout(60 * time.Second).Element("#username")
+	// D. Cek apakah ada form login (#username) di halaman yang baru dimuat
+	usernameEl, err := page.Timeout(5 * time.Second).Element("#username")
 	if err != nil {
-		ui.LogError("Input field 'username' tidak ditemukan!")
+		// Jika form login tidak ada, mungkin langsung diarahkan ke dashboard
+		links, err2 := page.Timeout(2 * time.Second).ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
+		if err2 == nil && len(links) > 0 {
+			ui.LogSuccess("Sesi aktif terdeteksi (Auto-Redirect)! Menuju Dashboard.")
+			return true
+		}
+		ui.LogError("Halaman login dimuat, tetapi form input 'username' tidak ditemukan!")
 		return false
 	}
+
+	// E. Jika form login ditemukan, lakukan input credentials
+	ui.LogInfo("Halaman login berhasil dimuat. Menyiapkan autentikasi...")
 	usernameEl.MustInput(nim)
 
-	// 2. Masukkan Password (Pemberian timeout 60 detik untuk server lambat)
-	passwordEl, err := page.Timeout(60 * time.Second).Element("#password")
+	passwordEl, err := page.Timeout(5 * time.Second).Element("#password")
 	if err != nil {
 		ui.LogError("Input field 'password' tidak ditemukan!")
 		return false
 	}
 	passwordEl.MustInput(password)
 
-	// 3. Klik Tombol Login
-	loginBtn, err := page.Timeout(60 * time.Second).ElementX("//input[@type='button' and @value='Login']")
+	// F. Klik Tombol Login
+	loginBtn, err := page.Timeout(5 * time.Second).ElementX("//input[@type='button' and @value='Login']")
 	if err != nil {
-		// Fallback ke input submit standar jika tipe button berbeda
-		loginBtn, err = page.Timeout(60 * time.Second).Element("input[type='submit']")
+		// Fallback ke input submit standar
+		loginBtn, err = page.Timeout(5 * time.Second).Element("input[type='submit']")
 	}
 	if err == nil && loginBtn != nil {
 		loginBtn.MustClick()
@@ -68,7 +93,7 @@ func loginLogic(ctx context.Context, page *rod.Page, baseURL, nim, password stri
 
 	ui.LogInfo("Mengirim data masuk... Menunggu halaman dashboard...")
 
-	// 4. Deteksi Dashboard Berhasil
+	// G. Deteksi Dashboard Berhasil
 	start := time.Now()
 	for time.Since(start) < time.Duration(timeoutSec)*time.Second {
 		info, _ := page.Info()
@@ -77,14 +102,14 @@ func loginLogic(ctx context.Context, page *rod.Page, baseURL, nim, password stri
 			return true
 		}
 
-		// A. Cek keberadaan frame menu (Non-blocking with 500ms timeout)
+		// A. Cek keberadaan frame menu (Non-blocking dengan 500ms timeout)
 		el, err := page.Timeout(500 * time.Millisecond).ElementsX("//frame[@name='menu'] | //iframe[@name='menu']")
 		if err == nil && len(el) > 0 {
 			ui.LogSuccess("Login Berhasil! (Dashboard Frame)")
 			return true
 		}
 
-		// B. Cek link KRS langsung (Portal Baru) (Non-blocking with 500ms timeout)
+		// B. Cek link KRS langsung (Portal Baru) (Non-blocking dengan 500ms timeout)
 		links, err := page.Timeout(500 * time.Millisecond).ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
 		if err == nil && len(links) > 0 {
 			ui.LogSuccess("Login Berhasil! (Portal Tanpa Frame)")
