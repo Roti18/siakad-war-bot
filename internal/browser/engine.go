@@ -16,7 +16,7 @@ import (
 
 // getActivePage returns the frame page context if it exists, otherwise the main page
 func getActivePage(page *rod.Page, name string) *rod.Page {
-	el, err := page.Element(fmt.Sprintf("frame[name='%s'], iframe[name='%s']", name, name))
+	el, err := page.Timeout(500 * time.Millisecond).Element(fmt.Sprintf("frame[name='%s'], iframe[name='%s']", name, name))
 	if err == nil && el != nil {
 		framePage, err := el.Frame()
 		if err == nil && framePage != nil {
@@ -219,7 +219,7 @@ func StartWarEngine(ctx context.Context,
 			}
 
 			menuPage := getActivePage(page, "menu")
-			krsLink, err := menuPage.Timeout(10 * time.Second).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
+			krsLink, err := menuPage.Timeout(10 * time.Second).ElementX("//a[contains(., 'Kartu Rencana') or contains(., 'KRS')]")
 			if err == nil && krsLink != nil {
 				ui.LogInfo("Mengakses menu Kartu Rencana Studi...")
 				krsLink.MustClick()
@@ -258,7 +258,7 @@ func StartWarEngine(ctx context.Context,
 		if err == nil && el != nil {
 			// Klik ulang menu KRS pada sidebar jika ber-frame
 			menuPage := getActivePage(page, "menu")
-			krsLink, err := menuPage.Timeout(2 * time.Second).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
+			krsLink, err := menuPage.Timeout(2 * time.Second).ElementX("//a[contains(., 'Kartu Rencana') or contains(., 'KRS')]")
 			if err == nil && krsLink != nil {
 				krsLink.MustClick()
 			}
