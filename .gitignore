@@ -3,6 +3,8 @@
 bot.exe
 /client
 client.exe
+krs-war-bot.exe
+*.exe
 
 # Local Chrome Profile cache (used for session persistence in Persistent profile mode)
 chrome_profile/
