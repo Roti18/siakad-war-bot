@@ -75,18 +75,27 @@ func loginLogic(ctx context.Context, page *rod.Page, baseURL, nim, password stri
 			return true
 		}
 
-		// Cek keberadaan frame menu (Non-blocking with patient 2s timeout for slow servers)
-		el, err := page.Timeout(2 * time.Second).ElementsX("//frame[@name='menu'] | //iframe[@name='menu']")
+		// A. Cek keberadaan frame menu (Non-blocking with 500ms timeout)
+		el, err := page.Timeout(500 * time.Millisecond).ElementsX("//frame[@name='menu'] | //iframe[@name='menu']")
 		if err == nil && len(el) > 0 {
 			ui.LogSuccess("Login Berhasil! (Dashboard Frame)")
 			return true
 		}
 
-		// Cek link KRS langsung (Portal Baru) (Non-blocking with patient 2s timeout for slow servers)
-		links, err := page.Timeout(2 * time.Second).ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
+		// B. Cek link KRS langsung (Portal Baru) (Non-blocking with 500ms timeout)
+		links, err := page.Timeout(500 * time.Millisecond).ElementsX("//a[contains(., 'Kartu Rencana') or contains(., 'Logout') or contains(., 'Keluar')]")
 		if err == nil && len(links) > 0 {
 			ui.LogSuccess("Login Berhasil! (Portal Tanpa Frame)")
 			return true
+		}
+
+		// C. Cek Fallback: Form login (#username) sudah hilang, dan URL bukan halaman login awal
+		_, err = page.Timeout(200 * time.Millisecond).Element("#username")
+		if err != nil {
+			if info != nil && !strings.Contains(strings.ToLower(info.URL), "index.php") && !strings.Contains(strings.ToLower(info.URL), "login") {
+				ui.LogSuccess("Login Berhasil! (Form login hilang & Halaman berpindah)")
+				return true
+			}
 		}
 
 		time.Sleep(500 * time.Millisecond)
@@ -165,14 +174,14 @@ func StartWarEngine(ctx context.Context,
 	// 3. Navigasi Menuju Halaman KRS
 	for {
 		// Cek logout otomatis (Non-blocking check)
-		usernameField, err := page.Timeout(200 * time.Millisecond).Element("#username")
+		usernameField, err := page.Timeout(500 * time.Millisecond).Element("#username")
 		if err == nil && usernameField != nil {
 			ui.LogWarning("Sesi putus saat navigasi! Mengulang login...")
 			loginLogic(ctx, page, baseURL, nim, password, sabarWait)
 		}
 
 		menuPage := getActivePage(page, "menu")
-		krsLink, err := menuPage.Timeout(500 * time.Millisecond).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
+		krsLink, err := menuPage.Timeout(10 * time.Second).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
 		if err == nil && krsLink != nil {
 			ui.LogInfo("Mengakses menu Kartu Rencana Studi...")
 			krsLink.MustClick()
@@ -189,7 +198,7 @@ func StartWarEngine(ctx context.Context,
 	xpathTambah := "//*[(self::a or self::input) and (contains(@value, 'Tambah') or contains(., 'Tambah'))]"
 	for {
 		mainPage := getActivePage(page, "main")
-		tambahBtn, err := mainPage.Timeout(200 * time.Millisecond).ElementX(xpathTambah)
+		tambahBtn, err := mainPage.Timeout(5 * time.Second).ElementX(xpathTambah)
 		if err == nil && tambahBtn != nil {
 			ui.LogSuccess("Tombol 'Tambah' ditemukan! Membuka Halaman Pemilihan Kelas...")
 			tambahBtn.MustClick()
@@ -199,11 +208,11 @@ func StartWarEngine(ctx context.Context,
 		ui.LogInfo(fmt.Sprintf("[%s] Tombol 'Tambah' belum aktif (Percobaan %d). Menyegarkan...", time.Now().Format("15:04:05"), tambahAttempt))
 		
 		// Deteksi keberadaan frame (Non-blocking)
-		el, err := page.Timeout(200 * time.Millisecond).Element("frame[name='menu'], iframe[name='menu']")
+		el, err := page.Timeout(500 * time.Millisecond).Element("frame[name='menu'], iframe[name='menu']")
 		if err == nil && el != nil {
 			// Klik ulang menu KRS pada sidebar jika ber-frame
 			menuPage := getActivePage(page, "menu")
-			krsLink, err := menuPage.Timeout(200 * time.Millisecond).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
+			krsLink, err := menuPage.Timeout(2 * time.Second).ElementX("//a[contains(., 'Kartu Rencana Studi')]")
 			if err == nil && krsLink != nil {
 				krsLink.MustClick()
 			}
@@ -227,7 +236,7 @@ func StartWarEngine(ctx context.Context,
 		mainPage := getActivePage(page, "main")
 
 		// Tunggu hingga tabel mata kuliah termuat (Non-blocking)
-		_, err := mainPage.Timeout(200 * time.Millisecond).Element(".table-common")
+		_, err := mainPage.Timeout(15 * time.Second).Element(".table-common")
 		if err != nil {
 			ui.LogWarning("Tabel mata kuliah belum muncul. Refreshing...")
 			_ = page.Context(ctx).Navigate(warURL)
@@ -237,7 +246,7 @@ func StartWarEngine(ctx context.Context,
 		}
 
 		// Otomatis klik ekspansi semester jika menggunakan accordion (Non-blocking)
-		expands, err := mainPage.Timeout(200 * time.Millisecond).ElementsX("//a[contains(text(), 'Paket Semester')]")
+		expands, err := mainPage.Timeout(5 * time.Second).ElementsX("//a[contains(text(), 'Paket Semester')]")
 		if err == nil {
 			for _, exp := range expands {
 				_, _ = exp.Eval("this.click()")
